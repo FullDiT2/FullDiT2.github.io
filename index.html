@@ -1,0 +1,2196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FullDiT2: Efficient In-Context Conditioning for Video Diffusion Transformers</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700&family=Quicksand:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            margin: 0;
+            padding: 0;
+            line-height: 1.7;
+            color: #555; /* 柔和的文字颜色 */
+            background-color: #fdfdfd; /* 非常浅的背景 */
+        }
+        .container {
+            width: 90%;
+            max-width: 1300px;
+            margin: auto;
+            overflow: hidden;
+            padding: 20px;
+        }
+        header {
+            background: linear-gradient(135deg, #a8e6cf 0%, #dcedc1 100%);
+            color: #fff;
+            padding: 2rem 0;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        header h1 {
+            margin: 0;
+            font-family: 'Quicksand', sans-serif;
+            font-size: 2.8rem;
+            font-weight: 700;
+        }
+        header .authors, header .affiliation {
+            font-size: 1em;
+            color: #fff;
+            opacity: 0.9;
+            margin-top: 8px;
+        }
+        header .links a {
+            color: #fff;
+            background-color: #6ab095;
+            text-decoration: none;
+            font-weight: bold;
+            padding: 10px 20px;
+            border-radius: 20px;
+            transition: background-color 0.3s, transform 0.2s;
+            display: inline-block;
+            margin: 15px 10px 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-size: 1rem;
+        }
+        header .links a:hover {
+            background-color: #569a7e;
+            transform: translateY(-2px);
+        }
+
+        nav {
+            background: #fff;
+            padding: 0.8rem 0;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        nav ul {
+            padding: 0;
+            list-style: none;
+            margin:0;
+        }
+        nav ul li {
+            display: inline;
+        }
+        nav ul li a {
+            color: #6ab095;
+            text-decoration: none;
+            padding: 10px 20px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: color 0.3s, background-color 0.3s;
+            border-radius: 5px;
+        }
+        nav ul li a:hover, nav ul li a.active-nav {
+            color: #fff;
+            background-color: #6ab095;
+        }
+
+        section {
+            padding: 30px 0px;
+            border-bottom: 1px solid #e0f2ea;
+        }
+        section:last-child {
+            border-bottom: none;
+        }
+        section h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2rem;
+            color: #6ab095;
+            font-family: 'Quicksand', sans-serif;
+            font-weight: 700;
+            border-bottom: 2px solid #e0f2ea;
+            padding-bottom: 15px;
+        }
+         section h3 {
+            text-align: center;
+            margin-top: 30px;
+            margin-bottom: 25px;
+            font-size: 1.6rem;
+            color: #777;
+            font-family: 'Quicksand', sans-serif;
+         }
+        section h4 {
+            margin-top: 25px;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            color: #6ab095;
+            font-weight: 600;
+        }
+         section h5 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .content-box {
+            background: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            text-align: justify;
+            margin-bottom: 20px;
+            border: 1px solid #f0f0f0;
+        }
+        .figure {
+            text-align: center;
+            margin: 35px auto;
+            max-width: 800px;
+        }
+        .figure img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.07);
+        }
+        .figure figcaption {
+            margin-top: 12px;
+            font-style: italic;
+            color: #777;
+            font-size: 0.95em;
+        }
+        .comparison-grid { /* Used for showcase as well */
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+        }
+        .comparison-case { /* Used for showcase items as well */
+            background: #f9f9f9;
+            padding: 20px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .video-placeholder, .image-placeholder, .text-placeholder-vis {
+            width: 100%;
+            min-height: 180px; /* Increased min-height for showcase a bit */
+            background-color: #e8f5e9; 
+            border: 2px dashed #c8e6c9; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #8cbba9; 
+            font-size: 0.9em; 
+            margin-bottom: 10px; /* Increased margin */
+            border-radius: 6px;
+            padding: 10px; 
+            box-sizing: border-box;
+            text-align: center; /* Ensure placeholder text is centered */
+        }
+        .text-placeholder-vis { min-height: 50px; text-align: left; }
+
+        .comparison-labels {
+            display: flex;
+            justify-content: space-around;
+            font-weight: 600;
+            font-size: 0.9em; 
+            color: #555;
+            margin-bottom: 6px; 
+            margin-top: 8px;
+        }
+        .results-summary ul, .quantitative-highlights ul, .showcase-item-caption ul {
+            list-style-type: '🚀';
+            padding-left: 30px;
+            text-align: left;
+        }
+        .results-summary li, .quantitative-highlights li, .showcase-item-caption li {
+            margin-bottom: 10px;
+        }
+        .quantitative-highlights {
+            background-color: #e0f2ea;
+            border-left: 5px solid #6ab095;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        /* Caption style for showcase items */
+        .showcase-item-caption {
+            font-size: 0.9rem;
+            color: #777;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            background: #f0f4f8; 
+            color: #777;
+            margin-top: 40px;
+            font-size: 0.9rem;
+        }
+
+        .tab-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 25px;
+            border-bottom: 1px solid #e0f2ea;
+            padding-bottom: 5px;
+            flex-wrap: wrap;
+        }
+        .tab-button, .sub-tab-button {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background-color: transparent;
+            font-family: 'Quicksand', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #888;
+            margin: 5px;
+            border-bottom: 3px solid transparent; 
+            transition: color 0.3s, border-bottom-color 0.3s;
+            border-radius: 5px 5px 0 0;
+        }
+        .tab-button:hover, .sub-tab-button:hover {
+            color: #6ab095;
+        }
+        .tab-button.active, .sub-tab-button.active {
+            color: #6ab095;
+            border-bottom: 3px solid #6ab095;
+            background-color: #fdfdfd;
+        }
+        .main-tab-content, .sub-tab-content {
+            display: none;
+            padding-top: 20px;
+        }
+        .main-tab-content.active, .sub-tab-content.active {
+            display: block;
+        }
+        .sub-tabs { 
+            margin-top: 20px; 
+            justify-content: center;
+        }
+/* Styles for Showcase Tabs */
+        .showcase-tab-button { /* Uses .tab-button general style but can be specific */
+            font-size: 1.05rem; /* Slightly smaller than main comparison tabs if desired */
+            padding: 8px 18px;
+        }
+        .showcase-tab-content {
+            display: none;
+            padding-top: 15px;
+        }
+        .showcase-tab-content.active {
+            display: block;
+        }
+
+        /* Styles for individual showcase item content */
+        .showcase-content-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 10px; /* Space between input pair and output */
+        }
+        .showcase-input-pair {
+            display: flex;
+            justify-content: space-around; /* Adjust as needed: space-between, space-evenly */
+            gap: 15px; /* Space between the two input items */
+            align-items: flex-start; /* Align items at the top */
+        }
+        .showcase-input-pair > div { /* Each input item (video + label) */
+            flex: 1; /* Allow them to take equal space, or set specific widths */
+            min-width: 0; /* Prevent overflow issues in flex items */
+        }
+        .video-placeholder.sm { /* Smaller placeholder for inputs */
+            min-height: 100px; /* Adjust as needed */
+            font-size: 0.8em;
+        }
+        .image-placeholder.sm {
+            min-height: 100px; /* Adjust as needed */
+            width: auto; /* Maintain aspect ratio if it's an image */
+            max-width: 100%;
+            font-size: 0.8em;
+        }
+        .text-placeholder-vis.sm {
+             min-height: 50px;
+             font-size: 0.8em;
+        }
+        .video-placeholder.lg { /* Larger placeholder for the main output */
+            min-height: 180px; /* Or keep original .video-placeholder height */
+        }
+/* ... (your existing CSS from the previous step) ... */
+
+        /* Style for the main title of each showcase tab's content */
+        .showcase-tab-content > h3 {
+            text-align: left; /* Align to left for a section feel */
+            border-left: 4px solid #a8e6cf; /* Theme accent border */
+            padding-left: 10px;
+            margin-bottom: 20px; /* Space below title */
+            font-size: 1.5rem; /* Adjust size as needed */
+            color: #333; /* Darker color for readability */
+        }
+
+        .comparison-grid { /* Ensure this works well for 2 or 3 columns */
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); /* Min width for items */
+        }
+
+        .comparison-case {
+            display: flex; /* Allow content to grow */
+            flex-direction: column;
+        }
+        .showcase-content-wrapper{
+             flex-grow: 1; /* Make wrapper take available space */
+        }
+
+        .comparison-labels.output-label { /* Specific style for the output label */
+            margin-top: 15px; /* More space above the main output */
+            font-weight: 700; /* Make it bolder */
+            color: #6ab095; /* Theme color for emphasis */
+        }
+        video.video-placeholder { /* Or just .video-placeholder if the class is directly on <video> */
+    width: 100%;
+    height: 100%; /* May require an aspect-ratio on the parent container */
+    object-fit: cover; /* Or 'contain', depending on the desired effect */
+}
+/* ... (your existing CSS) ... */
+
+.showcase-grid-two-col { /* New class for the main grid in showcase tabs */
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* Two columns of equal width */
+            gap: 20px; /* Adjust gap as needed */
+        }
+
+        .showcase-content-wrapper.horizontal-media {
+            display: flex;
+            flex-direction: row; /* Arrange children (media items) horizontally */
+            justify-content: space-between; /* Distribute space between items */
+            align-items: flex-start; /* Align items to the top; use 'stretch' if you want them to take full height of wrapper */
+            gap: 10px; /* Space between the horizontal media items */
+        }
+
+        .showcase-media-item {
+            flex: 1; /* Each media item takes equal width */
+            display: flex;
+            flex-direction: column; /* Stack label on top of media */
+            min-width: 0; /* Prevents flex items from overflowing if content is too wide */
+        }
+
+        .media-element { /* Common class for actual video/img elements for consistent sizing */
+            width: 100%; /* Make media take full width of its .showcase-media-item parent */
+            height: 150px; /* Fixed height for all media elements - ADJUST AS NEEDED */
+            object-fit: cover; /* Ensures media covers the area, may crop; use 'contain' to see full media */
+            background-color: #e8f5e9; /* Background for empty video or if image is transparent */
+            border: 1px solid #c8e6c9; /* Optional border */
+            border-radius: 4px; /* Optional rounded corners */
+        }
+
+        
+        .comparison-labels { /* Ensure labels are above media */
+            margin-bottom: 5px; /* Space between label and media */
+            font-size: 0.85em;
+            text-align: center; /* Center labels above media */
+        }
+
+        /* Adjust .comparison-case if needed for the new internal layout */
+        .comparison-case h5 { /* Sample title */
+             margin-bottom: 10px;
+        }
+        .comparison-media-flex-row {
+            display: flex;
+            gap: 10px; /* Space between the two media items in a row */
+            margin-bottom: 10px; /* Space below a row of media */
+        }
+
+        .comparison-media-container {
+            flex: 1; /* Each container takes up equal width in the row */
+            min-width: 0; /* Prevents flex items from overflowing */
+            display: flex; /* To help with alignment if needed, though not strictly necessary if only media inside */
+            flex-direction: column; /* If you were to put labels INSIDE this container */
+        }
+
+        .comparison-media-element {
+            width: 100%; /* Make media take full width of its .comparison-media-container parent */
+            height: 120px; /* FIXED HEIGHT for consistent sizing - ADJUST THIS VALUE AS NEEDED */
+            object-fit: cover; /* Ensures media covers the area, may crop; use 'contain' for full visibility */
+            background-color: #e8f5e9; /* Fallback background */
+            border: 1px solid #c8e6c9; 
+            border-radius: 4px;
+            /* For potential placeholder text inside if video fails */
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            text-align: center;
+            font-size: 0.8em; 
+            color: #8cbba9;
+        }
+
+        img.comparison-media-element {
+            object-fit: contain; /* Often better for ID images or logos to see the whole image */
+        }
+
+        /* Styling for the labels above each media row */
+        .comparison-labels {
+            display: flex; /* To arrange the <span> elements */
+            justify-content: space-around; /* Distributes space between the label spans */
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 0.85em;
+            color: #555;
+        }
+        .comparison-labels span {
+             flex: 1; /* Make each label span take equal width */
+             text-align: center; /* Center text within each label span */
+        }
+
+        /* Ensure the .comparison-grid itself allows items to have consistent width base */
+        /* The existing .comparison-grid style:
+           display: grid;
+           grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+           gap: 25px; 
+           This should already give reasonably consistent widths for the .comparison-case items.
+           The "consistent grid size" is mainly achieved by having consistent content height within.
+        */
+        .comparison-case h5 {
+            margin-bottom: 10px; /* Space below the "Case X" title */
+        }
+        .comparison-task-row {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            /* border-bottom: 1px solid #e0f2ea; */ /* Use <hr> instead for clearer separation */
+        }
+        .comparison-task-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .comparison-task-row h4 {
+            text-align: left;
+            font-family: 'Quicksand', sans-serif;
+            color: #6ab095; /* Theme color for task titles */
+            margin-bottom: 15px;
+            font-size: 1.4em;
+            border-bottom: 1px dashed #a8e6cf;
+            padding-bottom: 5px;
+        }
+        .comparison-method-flex-container {
+            display: flex;
+            flex-direction: row; /* Arrange items (Input, ID, Delta-DiT, etc.) horizontally */
+            justify-content: space-between; 
+            align-items: flex-start; 
+            gap: 15px; /* Space between each method's output column */
+            flex-wrap: wrap; /* Allow wrapping on smaller screens if needed */
+        }
+        .comparison-method-item {
+            flex: 1; /* Each item (column) tries to take equal width */
+            min-width: 150px; /* Minimum width before wrapping or shrinking too much, adjust as needed */
+            display: flex;
+            flex-direction: column; /* Stack label on top of media */
+        }
+        /* Reuse .comparison-media-element from previous styling for videos/images */
+        /* Ensure .comparison-media-element has a fixed height, e.g.: */
+        /* .comparison-media-element {
+            width: 100%;
+            height: 120px; /* Or your preferred consistent height */
+        /* object-fit: cover;
+            background-color: #e8f5e9;
+            border: 1px solid #c8e6c9;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 0.8em;
+            color: #8cbba9;
+        }
+        img.comparison-media-element {
+            object-fit: contain;
+        }
+        */
+
+        /* Reuse .comparison-labels from previous styling */
+        /* .comparison-labels {
+            margin-bottom: 5px;
+            font-size: 0.8em;
+            text-align: center;
+            font-weight: 600;
+            color: #555;
+        } */
+
+        .task-row-divider {
+            border: 0;
+            height: 1px;
+            background-color: #e0f2ea;
+            margin-top: 25px;
+            margin-bottom: 25px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="container">
+            <h1>FullDiT2: Efficient In-Context Conditioning for Video Diffusion Transformers</h1>
+            <p class="authors">Anonymous Author(s)</p>
+            <p class="affiliation">Affiliation, Address, email</p>
+            <div class="links">
+                <a href="#paper-link-placeholder">📄 Paper (PDF)</a>
+                <!-- <a href="#code-link-placeholder">💻 Code (Coming Soon)</a> -->
+            </div>
+        </div>
+    </header>
+
+    <nav>
+        <ul>
+            <li><a href="#abstract" onclick="setActiveNav(this)">Abstract</a></li>
+            <li><a href="#showcase" onclick="setActiveNav(this)">Showcase</a></li>
+            <li><a href="#method" onclick="setActiveNav(this)">Method</a></li>
+            <li><a href="#comparisons" onclick="setActiveNav(this)">Comparisons</a></li>
+            <li><a href="#results" onclick="setActiveNav(this)">Results</a></li>
+        </ul>
+    </nav>
+
+    <div class="container"> 
+        <section id="abstract">
+            <h2>Abstract</h2>
+            <div class="content-box">
+                <p>Fine-grained and efficient controllability on video diffusion transformers has raised increasing desires for the applicability. Recently, In-context Conditioning emerged as a powerful paradigm for unified conditional video generation, which enables diverse controls by concatenating varying context conditioning signals with noisy video latents into a long unified token sequence and jointly processing them via full-attention, e.g., FullDiT. Despite their effectiveness, these methods face quadratic computation overhead as task complexity increases, hindering practical deployment. In this paper, we study the efficiency bottleneck neglected in original in-context conditioning video generation framework. We begin with systematic analysis to identify two key sources of the computation inefficiencies: the inherent redundancy within context condition tokens and the computational redundancy in context-latent interactions throughout the diffusion process. Based on these insights, we propose FullDiT2, an efficient in-context conditioning framework for general controllability in both video generation and editing tasks, which innovates from two key perspectives. Firstly, to address the token redundancy in context conditions, FullDiT2 leverages a dynamical token selection mechanism to adaptively identity important context tokens, reducing the sequence length for unified full-attention. Additionally, a selective context caching mechanism is devised to minimize redundant interactions between condition tokens and video latents throughout the diffusion process. Extensive experiments on six diverse conditional video editing and generation tasks demonstrate that FullDiT2 achieves significant computation reduction and 2-3 times speedup in averaged time cost per diffusion step, with minimal degradation or even higher performance in video generation quality.</p>
+            </div>
+        </section>
+        <section id="showcase">
+            <h2>FullDiT2 Showcase: Diverse Capabilities</h2>
+            <p style="text-align:center; margin-bottom:25px;">Highlighting the visual quality and controllability of FullDiT2 across various video generation and editing tasks.</p>
+
+            <div class="tab-container showcase-tab-container">
+                <button class="showcase-tab-button active" onclick="openShowcaseTab(event, 'showcase-id-insertion')">ID Insertion</button>
+                <button class="showcase-tab-button" onclick="openShowcaseTab(event, 'showcase-id-swap')">ID Swap</button>
+                <button class="showcase-tab-button" onclick="openShowcaseTab(event, 'showcase-id-deletion')">ID Deletion</button>
+                <button class="showcase-tab-button" onclick="openShowcaseTab(event, 'showcase-re-camera')">Video Re-Camera</button>
+                <button class="showcase-tab-button" onclick="openShowcaseTab(event, 'showcase-pose-video')">Pose-to-Video</button>
+                <button class="showcase-tab-button" onclick="openShowcaseTab(event, 'showcase-traj-video')">Trajectory-to-Video</button>
+            </div>
+
+            <div id="showcase-id-insertion" class="showcase-tab-content active">
+                <h3 style="text-align:left; border-left: 4px solid #a8e6cf; padding-left: 10px;">Showcasing: ID Insertion</h3>
+                <p>FullDiT2 demonstrates high-fidelity insertion and can even outperform baselines in identity preservation for this task.</p>
+                <div class="comparison-grid showcase-grid-two-col"> <div class="comparison-case">
+                        <h5>Sample 1</h5>
+                        <div class="showcase-content-wrapper horizontal-media"> <div class="showcase-media-item">
+                                <div class="comparison-labels">Reference Video</div>
+                                <video class="media-element" controls muted loop>
+                                    <source src="videos/0_refvideo.mp4" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">ID Reference</div>
+                                <img src="figs/hb.png" alt="ID Reference S1" class="media-element">
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop>
+                                    <source src="videos/0_generated_1644.mp4" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 2</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Reference Video</div>
+                                <video class="media-element" controls muted loop>
+                                    <source src="videos/7_refvideo.mp4" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">ID Reference</div>
+                                <img src="figs/xx.png" alt="ID Reference S2" class="media-element">
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop>
+                                    <source src="videos/7_generated_114514.mp4" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 3</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Reference Video</div>
+                                <video class="media-element" controls muted loop>
+                                    <source src="videos/12_refvideo.mp4" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">ID Reference</div>
+                                <img src="figs/cm.png" alt="ID Reference S3" class="media-element">
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop>
+                                    <source src="videos/12_generated_1453.mp4" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 4</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Reference Video</div>
+                                <video class="media-element" controls muted loop>
+                                    <source src="videos/38_refvideo.mp4" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">ID Reference</div>
+                                <img src="figs/yj.jpeg" alt="ID Reference S4" class="media-element">
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop>
+                                    <source src="videos/38_generated_114514.mp4" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 5</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Reference Video</div>
+                                <video class="media-element" controls muted loop>
+                                    <source src="videos/40_refvideo.mp4" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">ID Reference</div>
+                                <img src="figs/necklace.jpg" alt="ID Reference S5" class="media-element">
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop>
+                                    <source src="videos/40_generated_1234.mp4" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 6</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Reference Video</div>
+                                <video class="media-element" controls muted loop>
+                                    <source src="videos/44_refvideo.mp4" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">ID Reference</div>
+                                <img src="figs/hl.png" alt="ID Reference S6" class="media-element">
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop>
+                                    <source src="videos/44_generated_1644.mp4" type="video/mp4">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="showcase-id-swap" class="showcase-tab-content">
+                <h3 style="text-align:left; border-left: 4px solid #a8e6cf; padding-left: 10px;">Showcasing: ID Swap</h3>
+                <p>FullDiT2 effectively swaps identities while maintaining scene coherence and video quality.</p>
+                <div class="comparison-grid showcase-grid-two-col">
+                    <div class="comparison-case">
+                        <h5>Sample 1</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video</div>
+                                <video class="media-element" controls muted loop><source src="videos/swap/16_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Target ID</div>
+                                <img src="figs/zbs.png" alt="Target ID S1" class="media-element">
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/swap/16_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 2</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video</div>
+                                <video class="media-element" controls muted loop><source src="videos/swap/18_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Target ID</div>
+                                <img src="figs/ljl.png" alt="Target ID S2" class="media-element">
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/swap/18_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 3</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video</div>
+                                <video class="media-element" controls muted loop><source src="videos/swap/19_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Target ID</div>
+                                <img src="figs/car.jpeg" alt="Target ID S3" class="media-element">
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/swap/19_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 4</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video</div>
+                                <video class="media-element" controls muted loop><source src="videos/swap/0_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Target ID</div>
+                                <img src="figs/bag.jpg" alt="Target ID S4" class="media-element">
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/swap/0_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 5</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video</div>
+                                <video class="media-element" controls muted loop><source src="videos/swap/37_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Target ID</div>
+                                <img src="figs/robot.png" alt="Target ID S5" class="media-element">
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/swap/37_generated_1234.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 6</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video</div>
+                                <video class="media-element" controls muted loop><source src="videos/swap/39_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Target ID</div>
+                                <img src="figs/suit.png" alt="Target ID S6" class="media-element">
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/swap/39_generated_1234.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="showcase-id-deletion" class="showcase-tab-content">
+                <h3 style="text-align:left; border-left: 4px solid #a8e6cf; padding-left: 10px;">Showcasing: ID Deletion</h3>
+                <p>FullDiT2 cleanly removes specified subjects or objects with minimal artifacts.</p>
+                <div class="comparison-grid showcase-grid-two-col">
+                    <div class="comparison-case">
+                        <h5>Sample 1</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                             <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video (Object to Delete)</div>
+                                <video class="media-element" controls muted loop><source src="videos/delete/0_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                             <!-- <div class="showcase-media-item">
+                                <div class="comparison-labels">Instruction/Mask (Optional)</div>
+                                <div class="media-element text-placeholder-vis">e.g., "Remove car" / Mask</div>
+                            </div> -->
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/delete/0_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 2</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                             <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video</div>
+                                <video class="media-element" controls muted loop><source src="videos/delete/10_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/delete/10_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 3</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                             <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video</div>
+                                <video class="media-element" controls muted loop><source src="videos/delete/1_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/delete/1_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 4</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                             <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video</div>
+                                <video class="media-element" controls muted loop><source src="videos/delete/4_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                             <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/delete/4_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 5</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                             <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video</div>
+                                <video class="media-element" controls muted loop><source src="videos/delete/7_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/delete/7_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 6</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                             <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video</div>
+                                <video class="media-element" controls muted loop><source src="videos/delete/9_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/delete/9_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="showcase-re-camera" class="showcase-tab-content">
+                <h3 style="text-align:left; border-left: 4px solid #a8e6cf; padding-left: 10px;">Showcasing: Video Re-Camera</h3>
+                <p>Generates video from new camera perspectives based on a reference video and target camera trajectory, handling multiple dense conditions efficiently.</p>
+                <div class="comparison-grid showcase-grid-two-col">
+                    <div class="comparison-case">
+                        <h5>Sample 1</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/5_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Cam. Trajectory</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/5_camera_video.mp4" type="video/mp4"></video> </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/5_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 2</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/15_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Cam. Trajectory</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/15_camera_video.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/15_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 3</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/24_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Cam. Trajectory</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/24_camera_video.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/24_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 4</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/36_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Cam. Trajectory</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/36_camera_video.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/36_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 5</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/49_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Cam. Trajectory</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/49_camera_video.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/49_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 6</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Ref. Video</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/51_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Cam. Trajectory</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/51_camera_video.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/recamera/51_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="showcase-pose-video" class="showcase-tab-content">
+                <h3 style="text-align:left; border-left: 4px solid #a8e6cf; padding-left: 10px;">Showcasing: Pose-to-Video</h3>
+                <p>Creates realistic and temporally consistent video driven by pose sequences, accurately following pose guidance.</p>
+                <div class="comparison-grid showcase-grid-two-col">
+                    <div class="comparison-case">
+                        <h5>Sample 1</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Pose Sequence</div>
+                                <video class="media-element" controls muted loop><source src="videos/pose/1_refvideo.mp4" type="video/mp4"></video> </div>
+                            <!-- <div class="showcase-media-item">
+                                <div class="comparison-labels">Text (Optional)</div>
+                                <div class="media-element text-placeholder-vis">Prompt S1</div>
+                            </div> -->
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/pose/1_generated_1234.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 2</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Pose Sequence</div>
+                                <video class="media-element" controls muted loop><source src="videos/pose/3_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <!-- <div class="showcase-media-item">
+                                <div class="comparison-labels">Text (Optional)</div>
+                                <div class="media-element text-placeholder-vis">Prompt S2</div>
+                            </div> -->
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/pose/3_generated_1234.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 3</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Pose Sequence</div>
+                                <video class="media-element" controls muted loop><source src="videos/pose/12_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <!-- <div class="showcase-media-item">
+                                <div class="comparison-labels">Text (Optional)</div>
+                                <div class="media-element text-placeholder-vis">Prompt S3</div>
+                            </div> -->
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/pose/12_generated_1234.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 4</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Pose Sequence</div>
+                                <video class="media-element" controls muted loop><source src="videos/pose/27_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <!-- <div class="showcase-media-item">
+                                <div class="comparison-labels">Text (Optional)</div>
+                                <div class="media-element text-placeholder-vis">Prompt S4</div>
+                            </div> -->
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/pose/27_generated_1234.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 5</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Pose Sequence</div>
+                                <video class="media-element" controls muted loop><source src="videos/pose/7_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <!-- <div class="showcase-media-item">
+                                <div class="comparison-labels">Text (Optional)</div>
+                                <div class="media-element text-placeholder-vis">Prompt S5</div>
+                            </div> -->
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/pose/7_generated_1234.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 6</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Pose Sequence</div>
+                                <video class="media-element" controls muted loop><source src="videos/pose/13_refvideo.mp4" type="video/mp4"></video>
+                            </div>
+                            <!-- <div class="showcase-media-item">
+                                <div class="comparison-labels">Text (Optional)</div>
+                                <div class="media-element text-placeholder-vis">Prompt S6</div>
+                            </div> -->
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/pose/13_generated_1234.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="showcase-traj-video" class="showcase-tab-content">
+                <h3 style="text-align:left; border-left: 4px solid #a8e6cf; padding-left: 10px;">Showcasing: Trajectory-to-Video</h3>
+                <p>Generates dynamic video content following specified camera trajectories with good alignment.</p>
+                <div class="comparison-grid showcase-grid-two-col">
+                    <div class="comparison-case">
+                        <h5>Sample 1</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Cam. Trajectory</div>
+                                <video class="media-element" controls muted loop><source src="videos/camera/8_camera_video.mp4" type="video/mp4"></video> </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Text</div>
+                                <div class="media-element text-placeholder-vis">A man is inside a climbing gym</div>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/camera/8_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 2</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Cam. Trajectory</div>
+                                <video class="media-element" controls muted loop><source src="videos/camera/16_camera_video.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Text</div>
+                                <div class="media-element text-placeholder-vis">A man is giving a presentation</div>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/camera/16_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 3</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Cam. Trajectory</div>
+                                <video class="media-element" controls muted loop><source src="videos/camera/20_camera_video.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Text</div>
+                                <div class="media-element text-placeholder-vis">A young man is speaking</div>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/camera/20_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 4</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Cam. Trajectory</div>
+                                <video class="media-element" controls muted loop><source src="videos/camera/23_camera_video.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Text</div>
+                                <div class="media-element text-placeholder-vis">A news hosted by a male and female news anchor</div>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/camera/23_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 5</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Cam. Trajectory</div>
+                                <video class="media-element" controls muted loop><source src="videos/camera/24_camera_video.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Text</div>
+                                <div class="media-element text-placeholder-vis">A first-person perspective through a underwater enviroment. </div>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/camera/24_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-case">
+                        <h5>Sample 6</h5>
+                        <div class="showcase-content-wrapper horizontal-media">
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Cam. Trajectory</div>
+                                <video class="media-element" controls muted loop><source src="videos/camera/30_camera_video.mp4" type="video/mp4"></video>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels">Text</div>
+                                <div class="media-element text-placeholder-vis">A collection of festival decorations.</div>
+                            </div>
+                            <div class="showcase-media-item">
+                                <div class="comparison-labels output-label">FullDiT2 Output</div>
+                                <video class="media-element" controls muted loop><source src="videos/camera/30_generated.mp4" type="video/mp4"></video>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section id="method">
+            <h2>Our Approach: FullDiT2</h2>
+            <div class="content-box">
+                <p>We propose FullDiT2 to address the computational burden of In-Context Conditioning(ICC). FullDiT2 inherits the context conditioning mechanism but introduces two key innovations: 1) <b>Dynamic Token Selection</b> to reduce sequence length for full-attention by identifying important context tokens, and 2) <b>Selective Context Caching</b> to minimize redundant computations by caching and skipping context tokens across diffusion steps and blocks.</p>
+                <h4>1. Dynamic Token Selection</h4>
+                <p>To address token redundancy where many context tokens might be less informative, each Transformer block in FullDiT2 adaptively selects an informative subset of reference tokens (e.g., top 50% in our implementation) using a lightweight, learnable importance prediction network operating on reference Value vectors. This reduces the sequence length for attention involving reference tokens, lowering computational cost from $O((n_z+n_c)^2)$ towards $O((n_z+k)^2)$. Unselected reference tokens bypass the attention mechanism and are re-concatenated after the Feed-Forward Network to preserve their information for subsequent layers.</p>
+
+                <h4>2. Selective Context Caching</h4>
+                <p>To tackle computation redundancy across timesteps and layers, FullDiT2 first identifies important layers for reference token processing using a Block Importance Index. Only these pre-selected important layers (e.g., 4 layers with highest BI plus the first layer for token projection in our model) process reference information; intermediate layers only process noisy tokens, with reference representations passed directly between important layers. For temporal efficiency, especially given that context tokens are relatively static across diffusion steps compared to noisy latents, we cache the Key (K) and Value (V) of selected top-k reference tokens from the first sampling step ($T_0$). These cached K/V values are then reused in subsequent steps for the non-skipped layers, avoiding redundant re-computation. Decoupled attention is employed to maintain training-inference consistency during this caching process, as naive caching can lead to misalignment.</p>
+            </div>
+            <div class="figure">
+                <h3>Comparison of our FullDiT2 with adapter-based methods and Full-DiT.</h3>
+                <img src="figs/first_fig.pdf" alt="Figure 3: Overview of the FullDiT2 Framework">
+                <figcaption>Figure 2: Comparison of our FullDiT2 with adapter-based methods and Full-DiT.</figcaption>
+            </div>
+
+            <div class="figure">
+                <h3>FullDiT2 Framework Overview</h3>
+                <img src="figs/mainfig_0516_v2.pdf" alt="Figure 3: Overview of the FullDiT2 Framework">
+                <figcaption>Figure 3: (Left) Dynamic Token Selection (DTS) module selects top-K reference tokens for attention. (Right) Selective Context Caching illustrates temporal-layer caching and skipping for efficiency.</figcaption>
+            </div>
+        </section>
+
+
+        <section id="comparisons">
+            <h2>Comparisons</h2>
+
+            <div class="tab-container main-tabs">
+                <button class="tab-button active" onclick="openMainTab(event, 'baseline-compare')">vs. Baseline (FullDiT)</button>
+                <!-- <button class="tab-button" onclick="openMainTab(event, 'ablation-studies')">Ablation Studies</button> -->
+                <button class="tab-button" onclick="openMainTab(event, 'general-models')">vs. General Models</button>
+            </div>
+
+            <div id="baseline-compare" class="main-tab-content active">
+                <h3>Task-Specific Comparisons against Baseline (FullDiT)</h3>
+                <p style="text-align:center; margin-bottom:20px;">FullDiT2 consistently achieves significant speedups while maintaining or improving generation quality compared to the FullDiT baseline across various tasks. [cite: 9, 130]</p>
+
+                <div class="tab-container sub-tabs">
+                    <button class="sub-tab-button active" onclick="openSubTab(event, 'id-insert-baseline', 'baseline-compare')">ID Insertion</button>
+                    <button class="sub-tab-button" onclick="openSubTab(event, 'id-swap-baseline', 'baseline-compare')">ID Swap</button>
+                    <button class="sub-tab-button" onclick="openSubTab(event, 'id-delete-baseline', 'baseline-compare')">ID Deletion</button>
+                    <button class="sub-tab-button" onclick="openSubTab(event, 're-camera-baseline', 'baseline-compare')">Video Re-Camera</button>
+                    <button class="sub-tab-button" onclick="openSubTab(event, 'pose-video-baseline', 'baseline-compare')">Pose-to-Video</button>
+                    <button class="sub-tab-button" onclick="openSubTab(event, 'traj-video-baseline', 'baseline-compare')">Trajectory-to-Video</button>
+                </div>
+
+                <div id="id-insert-baseline" class="sub-tab-content active">
+                    <h4>ID Insertion</h4>
+                    <div class="quantitative-highlights">
+                        <h5>Quantitative Highlights</h5>
+                        <ul>
+                            <li><strong>Speedup (Ours):</strong> 2.287x</li>
+                            <li><strong>GFLOPS (Baseline vs Ours):</strong> 69.292 vs 33.141 (Ours is lower)</li>
+                            <li><strong>CLIP-I (Baseline vs Ours):</strong> 0.568 vs 0.605 (Ours is higher)</li>
+                            <li><strong>DINO-S (Baseline vs Ours):</strong> 0.254 vs 0.313 (Ours is higher)</li>
+                            <li><em>FullDiT2 can even outperform the baseline in ID insertion tasks.</em></li>
+                        </ul>
+                    </div>
+                    <div class="comparison-grid">
+                        <div class="comparison-case">
+                            <h5>Case 1</h5>
+                            <div class="comparison-labels">
+                                <span>Input Video</span>
+                                <span>ID Reference</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/insert/baseline/26_refvideo.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <img src="figs/duy.png" alt="ID Reference S1" class="comparison-media-element">
+                                </div>
+                            </div>
+    
+                            <div class="comparison-labels" style="margin-top: 15px;"> <span>Baseline Output</span>
+                                <span>FullDiT2 Output</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/insert/baseline/26_generated_114514.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/insert/ours/26_generated_1644.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+                        </div>
+    
+                        <div class="comparison-case">
+                            <h5>Case 2</h5>
+                            <div class="comparison-labels">
+                                <span>Input Video</span>
+                                <span>ID Reference</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/insert/baseline/32_refvideo.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <img src="figs/pari.png" alt="ID Reference S2" class="comparison-media-element">
+                                </div>
+                            </div>
+    
+                            <div class="comparison-labels" style="margin-top: 15px;">
+                                <span>Baseline Output</span>
+                                <span>FullDiT2 Output</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/insert/baseline/32_generated_211985.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/insert/ours/32_generated_211985.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="id-swap-baseline" class="sub-tab-content">
+                    <h4>ID Swap</h4>
+                     <div class="quantitative-highlights">
+                        <h5>Quantitative Highlights</h5>
+                        <ul>
+                            <li><strong>Speedup (Ours):</strong> 2.287x</li>
+                            <li><strong>GFLOPS (Baseline vs Ours):</strong> 69.292 vs 33.141</li>
+                            <li><strong>CLIP-I (Baseline vs Ours):</strong> 0.619 vs 0.621</li>
+                        </ul>
+                    </div>
+                    <div class="comparison-grid">
+                        <div class="comparison-case">
+                            <h5>Case 1</h5>
+                            <div class="comparison-labels">
+                                <span>Input Video</span>
+                                <span>ID Reference</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/swap/baseline/21_refvideo.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <img src="figs/robot.png" alt="ID Reference S1" class="comparison-media-element">
+                                </div>
+                            </div>
+    
+                            <div class="comparison-labels" style="margin-top: 15px;"> <span>Baseline Output</span>
+                                <span>FullDiT2 Output</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/swap/baseline/21_generated_1453.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/swap/ours/21_generated_211985.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+                        </div>
+    
+                        <div class="comparison-case">
+                            <h5>Case 2</h5>
+                            <div class="comparison-labels">
+                                <span>Input Video</span>
+                                <span>ID Reference</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/swap/ours/2_refvideo.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <img src="figs/sofa.png" alt="ID Reference S2" class="comparison-media-element">
+                                </div>
+                            </div>
+    
+                            <div class="comparison-labels" style="margin-top: 15px;">
+                                <span>Baseline Output</span>
+                                <span>FullDiT2 Output</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/swap/baseline/2_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/swap/ours/2_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="id-delete-baseline" class="sub-tab-content">
+                    <h4>ID Deletion</h4>
+                     <div class="quantitative-highlights">
+                        <h5>Quantitative Highlights</h5>
+                        <ul>
+                            <li><strong>Speedup (Ours):</strong> 2.287x</li>
+                            <li><strong>GFLOPS (Baseline vs Ours):</strong> 69.292 vs 33.141</li>
+                        </ul>
+                    </div>
+                    <div class="comparison-grid">
+                        <div class="comparison-case">
+                            <h5>Case 1</h5>
+                            <div class="comparison-labels">
+                                <span>Input Video</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/delete/ours/4_refvideo.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <!-- <div class="comparison-media-container">
+                                    <img src="figs/robot.png" alt="ID Reference S1" class="comparison-media-element">
+                                </div> -->
+                            </div>
+    
+                            <div class="comparison-labels" style="margin-top: 15px;"> <span>Baseline Output</span>
+                                <span>FullDiT2 Output</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/delete/baseline/4_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/delete/ours/4_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+                        </div>
+    
+                        <div class="comparison-case">
+                            <h5>Case 2</h5>
+                            <div class="comparison-labels">
+                                <span>Input Video</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/delete/ours/6_refvideo.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>                            
+                            </div>
+    
+                            <div class="comparison-labels" style="margin-top: 15px;">
+                                <span>Baseline Output</span>
+                                <span>FullDiT2 Output</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/delete/baseline/6_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/delete/ours/6_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="re-camera-baseline" class="sub-tab-content">
+                    <h4>Video Re-Camera</h4>
+                    <div class="quantitative-highlights">
+                        <h5>Quantitative Highlights</h5>
+                        <ul>
+                            <li><strong>Speedup (Ours):</strong> 3.433x</li>
+                            <li><strong>GFLOPS (Baseline vs Ours):</strong> 101.517 vs 33.407 (~32% of baseline)</li>
+                            <li><strong>RotErr / TransErr:</strong> Comparable or improved (e.g. Baseline 6.173 TransErr vs Ours 5.730)</li>
+                        </ul>
+                    </div>
+                    <div  class="comparison-grid">
+                        <div class="comparison-case">
+                            <h5>Case 1</h5>
+                            <div class="comparison-labels">
+                                <span>Input Video</span>
+                                <span>Camera Trajectory</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/recamera/ours/5_refvideo.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/recamera/ours/5_camera_video.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+    
+                            <div class="comparison-labels" style="margin-top: 15px;"> <span>Baseline Output</span>
+                                <span>FullDiT2 Output</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/recamera/baseline/5_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/recamera/ours/5_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+                        </div>
+    
+                        <div class="comparison-case">
+                            <h5>Case 2</h5>
+                            <div class="comparison-labels">
+                                <span>Input Video</span>
+                                <span>ID Reference</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/recamera/ours/15_refvideo.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/recamera/ours/15_camera_video.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+    
+                            <div class="comparison-labels" style="margin-top: 15px;">
+                                <span>Baseline Output</span>
+                                <span>FullDiT2 Output</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/recamera/baseline/15_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/recamera/ours/15_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+                        </div>
+                    </div>                
+                </div>
+                <div id="pose-video-baseline" class="sub-tab-content">
+                    <h4>Pose-to-Video</h4>
+                     <div class="quantitative-highlights">
+                        <h5>Quantitative Highlights </h5>
+                        <ul>
+                            <li><strong>Speedup (Ours):</strong> 2.143x</li>
+                            <li><strong>GFLOPS (Baseline vs Ours):</strong> 64.457 vs 33.111 </li>
+                            <li><strong>PCK (Pose Control):</strong> Maintained (e.g. Baseline 72.445 vs Ours 71.408)</li>
+                        </ul>
+                    </div>
+                    <div  class="comparison-grid">
+                        <div class="comparison-case">
+                            <h5>Case 1</h5>
+                            <div class="comparison-labels">
+                                <span>Pose Video</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/pose/ours/1_refvideo.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+    
+                            <div class="comparison-labels" style="margin-top: 15px;"> <span>Baseline Output</span>
+                                <span>FullDiT2 Output</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/pose/baseline/1_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/pose/ours/1_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+                        </div>
+    
+                        <div class="comparison-case">
+                            <h5>Case 2</h5>
+                            <div class="comparison-labels">
+                                <span>Pose Video</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/pose/ours/10_refvideo.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+    
+                            <div class="comparison-labels" style="margin-top: 15px;">
+                                <span>Baseline Output</span>
+                                <span>FullDiT2 Output</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/pose/baseline/10_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/pose/baseline/10_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+                        </div>
+                    </div>                
+                </div>
+                <div id="traj-video-baseline" class="sub-tab-content">
+                    <h4>Trajectory-to-Video</h4>
+                    <div class="quantitative-highlights">
+                        <h5>Quantitative Highlights</h5>
+                         <ul>
+                            <li><strong>Speedup (Ours):</strong> 2.143x</li>
+                            <li><strong>GFLOPS (Baseline vs Ours):</strong> 64.457 vs 33.111</li>
+                            <li><strong>RotErr / TransErr:</strong> Maintained (e.g. Baseline 1.471 / 5.755 vs Ours 1.566 / 5.714)</li>
+                        </ul>
+                    </div>
+                    <div  class="comparison-grid">
+                        <div class="comparison-case">
+                            <h5>Case 1</h5>
+                            <div class="comparison-labels">
+                                <span>Pose Video</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/camera/ours/8_camera_video.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+    
+                            <div class="comparison-labels" style="margin-top: 15px;"> <span>Baseline Output</span>
+                                <span>FullDiT2 Output</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/camera/baseline/8_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/camera/ours/8_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+                        </div>
+    
+                        <div class="comparison-case">
+                            <h5>Case 2</h5>
+                            <div class="comparison-labels">
+                                <span>Pose Video</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/camera/ours/16_camera_video.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+    
+                            <div class="comparison-labels" style="margin-top: 15px;">
+                                <span>Baseline Output</span>
+                                <span>FullDiT2 Output</span>
+                            </div>
+                            <div class="comparison-media-flex-row">
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/camera/baseline/16_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                                <div class="comparison-media-container">
+                                    <video class="comparison-media-element" controls muted loop>
+                                        <source src="videos/camp/camera/ours/16_generated.mp4" type="video/mp4">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                </div>
+                            </div>
+                        </div>
+                    </div>                
+                </div>
+            </div>
+            <div id="general-models" class="main-tab-content">
+                <h3>Task-based Comparison with Acceleration Techniques</h3>
+                <p style="text-align:center; margin-bottom:20px;">Comparing FullDiT2 with other acceleration methods (Delta-DiT, FORA) on specific tasks, focusing on output quality and conditioning adherence under similar speedup conditions (conceptual).</p>
+
+                <div class="comparison-task-row">
+                    <h4>ID Insert</h4>
+                    <div class="comparison-method-flex-container">
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">Input Video</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/insert/ours/20_refvideo.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">ID Reference</div>
+                            <img src="figs/ttq.png" alt="ID Insert Ref" class="comparison-media-element">
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">Delta-DiT Output</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/insert/dil/20_generated_1234.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">FORA Output</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/insert/fora/20_generated_1234.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels output-label">FullDiT2 (Ours)</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/insert/ours/20_generated.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="comparison-task-row">
+                    <h4>ID Swap</h4>
+                    <div class="comparison-method-flex-container">
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">Input Video</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/swap/ours/2_refvideo.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">ID Reference</div>
+                            <img src="figs/sofa.png" alt="ID Insert Ref" class="comparison-media-element">
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">Delta-DiT Output</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/swap/dil/2_generated_1234.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">FORA Output</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/swap/fora/2_generated_1234.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels output-label">FullDiT2 (Ours)</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/swap/ours/2_generated.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                    </div>
+                </div>
+                <div class="comparison-task-row">
+                    <h4>ID Delete</h4>
+                    <div class="comparison-method-flex-container">
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">Input Video</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/delete/ours/4_refvideo.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <!-- <div class="comparison-method-item">
+                            <div class="comparison-labels">ID Reference</div>
+                            <img src="figs/task_idinsert_id.png" alt="ID Insert Ref" class="comparison-media-element">
+                        </div> -->
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">Delta-DiT Output</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/delete/dil/4_generated_1234.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">FORA Output</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/delete/fora/4_generated_1234.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels output-label">FullDiT2 (Ours)</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/delete/ours/4_generated.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                    </div>
+                </div>
+                <div class="comparison-task-row">
+                    <h4>Video Recamera</h4>
+                    <div class="comparison-method-flex-container">
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">Input Video</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/recamera/ours/15_refvideo.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">Camera Trajectory</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/recamera/ours/15_camera_video.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">Delta-DiT Output</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/recamera/dil/15_generated.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">FORA Output</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/recamera/fora/15_generated.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels output-label">FullDiT2 (Ours)</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/recamera/ours/15_generated.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                    </div>
+                </div>
+                <div class="comparison-task-row">
+                    <h4>Trajectory-to-Video</h4>
+                    <div class="comparison-method-flex-container">
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">Camera Trajectory</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/camera/ours/23_camera_video.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">Delta-DiT Output</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/camera/dil/23_generated.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">FORA Output</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/camera/fora/23_generated.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels output-label">FullDiT2 (Ours)</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/camera/ours/23_generated.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                    </div>
+                </div>
+                <div class="comparison-task-row">
+                    <h4>Pose to Video</h4>
+                    <div class="comparison-method-flex-container">
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">Pose Video</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/pose/ours/1_refvideo.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <!-- <div class="comparison-method-item">
+                            <div class="comparison-labels">ID Reference</div>
+                            <img src="figs/task_idinsert_id.png" alt="ID Insert Ref" class="comparison-media-element">
+                        </div> -->
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">Delta-DiT Output</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/pose/dil/1_generated_1234.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels">FORA Output</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/pose/fora/1_generated_1234.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                        <div class="comparison-method-item">
+                            <div class="comparison-labels output-label">FullDiT2 (Ours)</div>
+                            <video class="comparison-media-element" controls muted loop>
+                                <source src="videos/general/pose/ours/1_generated_1234.mp4" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- <hr class="task-row-divider">
+
+                <div class="comparison-task-row">
+                    <h4>ID Swap</h4>
+                    <div class="comparison-method-flex-container">
+                        </div>
+                </div>
+                <hr class="task-row-divider"> -->
+
+                </div>
+
+        </section>
+
+        <section id="results">
+            <h2>Efficiency and Performance Gains Summary</h2>
+            <div class="content-box results-summary">
+                <p>FullDiT2 demonstrates substantial improvements in computational efficiency while maintaining or even enhancing video generation quality across six diverse tasks.</p>
+                <ul>
+                    <li><strong>Significant Speedup:</strong> Achieves 2-3 times speedup in averaged time cost per diffusion step compared to the baseline FullDiT. For instance, in ID-related video editing tasks, FullDiT2 achieves approximately 2.28x speedup.</li>
+                    <li><strong>Reduced Computational Cost:</strong> Particularly pronounced in tasks with multiple conditions, such as Video Re-Camera, where FullDiT2 reduces computational cost to only 32% of baseline FLOPs and achieves a 3.43x speedup.</li>
+                    <li><strong>Preserved/Improved Quality:</strong> Maintains high fidelity and accurately adheres to various conditioning inputs, achieving results comparable to or even outperforming the baseline. For example, FullDiT2 can outperform in ID insertion tasks.</li>
+                </ul>
+                <!-- <p style="text-align:center; margin-top:15px;">(Refer to Table 1 in the paper for detailed quantitative comparisons across all tasks. [cite: 138, 139])</p> -->
+            </div>
+             <!-- <div class="figure">
+                <h3>Computational Cost Analysis (Self-Attention)</h3>
+                <img src="placeholder_figure5.png" alt="Figure 5: Comparison of computational costs">
+                <figcaption>Figure 5: FullDiT2 significantly reduces self-attention computational cost versus target video length compared to the baseline. [cite: 165, 170]</figcaption>
+            </div> -->
+        </section>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Anonymous Author(s). This webpage is for illustrative purposes.</p>
+            <p>FullDiT2: Efficient In-Context Conditioning for Video Diffusion Transformers. Submitted to NeurIPS 2025.</p>
+        </div>
+    </footer>
+
+    <script>
+        function setActiveNav(element) {
+            var navLinks = document.querySelectorAll('nav ul li a');
+            navLinks.forEach(function(link) {
+                link.classList.remove('active-nav');
+            });
+            if (element) {
+                element.classList.add('active-nav');
+            }
+        }
+
+        function openMainTab(evt, mainTabName) {
+            var i, mainTabcontent, mainTabbuttons;
+            mainTabcontent = document.getElementsByClassName("main-tab-content");
+            for (i = 0; i < mainTabcontent.length; i++) {
+                mainTabcontent[i].style.display = "none";
+                mainTabcontent[i].classList.remove("active");
+            }
+            mainTabbuttons = document.querySelectorAll(".main-tabs .tab-button"); 
+            for (i = 0; i < mainTabbuttons.length; i++) {
+                mainTabbuttons[i].classList.remove("active");
+            }
+            var targetMainTab = document.getElementById(mainTabName);
+            if(targetMainTab) {
+                targetMainTab.style.display = "block";
+                targetMainTab.classList.add("active");
+            }
+            evt.currentTarget.classList.add("active");
+
+            // Auto-click the first sub-tab in the newly opened main tab
+            var firstSubTabButton = document.querySelector("#" + mainTabName + " .sub-tabs .sub-tab-button");
+            if (firstSubTabButton) {
+                // Deactivate all sub-tabs within this main tab first
+                let subTabsInCurrentMain = document.querySelectorAll("#" + mainTabName + " .sub-tabs .sub-tab-button");
+                 subTabsInCurrentMain.forEach(btn => btn.classList.remove('active'));
+                 let subContentInCurrentMain = document.querySelectorAll("#" + mainTabName + " .sub-tab-content");
+                 subContentInCurrentMain.forEach(content => {
+                     content.style.display = 'none';
+                     content.classList.remove('active');
+                    });
+                firstSubTabButton.click(); 
+            }
+        }
+
+        function openSubTab(evt, subTabName) {
+            var i, subTabcontent, subTabbuttons;
+            var parentMainTabContent = evt.currentTarget.closest('.main-tab-content');
+            if (!parentMainTabContent) return;
+
+            subTabcontent = parentMainTabContent.getElementsByClassName("sub-tab-content");
+            for (i = 0; i < subTabcontent.length; i++) {
+                subTabcontent[i].style.display = "none";
+                subTabcontent[i].classList.remove("active");
+            }
+            
+            var currentSubTabContainer = evt.currentTarget.closest('.sub-tabs');
+            if(currentSubTabContainer){
+                 subTabbuttons = currentSubTabContainer.getElementsByClassName("sub-tab-button");
+                for (i = 0; i < subTabbuttons.length; i++) {
+                    subTabbuttons[i].classList.remove("active");
+                }
+            }
+            var targetSubTab = document.getElementById(subTabName);
+            if(targetSubTab){
+                targetSubTab.style.display = "block";
+                targetSubTab.classList.add("active");
+            }
+            evt.currentTarget.classList.add("active");
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var firstMainTabButton = document.querySelector('.main-tabs .tab-button');
+            if (firstMainTabButton) {
+                firstMainTabButton.click();
+            }
+            
+            const currentHash = window.location.hash;
+            var activeNavLink = null;
+            if (currentHash) {
+                try { activeNavLink = document.querySelector(`nav ul li a[href="${currentHash}"]`); } catch(e) { console.error("Invalid selector for hash:", currentHash); }
+            }
+            
+            if (activeNavLink) {
+                 setActiveNav(activeNavLink);
+            } else {
+                var firstNavLink = document.querySelector('nav ul li a');
+                if(firstNavLink) setActiveNav(firstNavLink);
+            }
+
+            document.querySelectorAll('nav ul li a').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    const targetId = this.getAttribute('href');
+                    if (targetId && targetId.startsWith('#') && targetId.length > 1) { 
+                        try {
+                            const targetElement = document.querySelector(targetId);
+                            if (targetElement) {
+                                e.preventDefault();
+                                window.scrollTo({
+                                    top: targetElement.offsetTop - 80, // Adjust for sticky nav height
+                                    behavior: 'smooth'
+                                });
+                                setActiveNav(this);
+                            }
+                        } catch (err) {
+                            console.error("Error scrolling to element or invalid selector: ", targetId, err);
+                        }
+                    }
+                });
+            });
+        });
+        function openShowcaseTab(evt, showcaseTabName) {
+            var i, showcaseTabcontent, showcaseTabbuttons;
+            showcaseTabcontent = document.getElementsByClassName("showcase-tab-content");
+            for (i = 0; i < showcaseTabcontent.length; i++) {
+                showcaseTabcontent[i].style.display = "none";
+                showcaseTabcontent[i].classList.remove("active");
+            }
+            showcaseTabbuttons = document.getElementsByClassName("showcase-tab-button");
+            for (i = 0; i < showcaseTabbuttons.length; i++) {
+                showcaseTabbuttons[i].classList.remove("active");
+            }
+            var targetShowcaseTab = document.getElementById(showcaseTabName);
+            if(targetShowcaseTab){
+                targetShowcaseTab.style.display = "block";
+                targetShowcaseTab.classList.add("active");
+            }
+            evt.currentTarget.classList.add("active");
+        }
+
+        // Modify your DOMContentLoaded to activate the first showcase tab:
+        // Inside your document.addEventListener('DOMContentLoaded', function() { ... });
+        // Add this:
+            var firstShowcaseTabButton = document.querySelector('.showcase-tab-container .showcase-tab-button');
+            if (firstShowcaseTabButton) {
+                firstShowcaseTabButton.click();
+            }
+        // });
+
+    </script>
+
+</body>
+</html>
