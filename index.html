@@ -1,13 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FullDiT2: Efficient In-Context Conditioning for Video Diffusion Transformers</title>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700&family=Quicksand:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']], // Enable $...$ for inline math
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]  // Standard display math
+      },
+      startup: {
+        ready: () => {
+          console.log('MathJax is ready to process the page.'); // For debugging
+          MathJax.startup.defaultReady();
+        }
+      },
+      svg: { // Using SVG output for better scaling
+        fontCache: 'global'
+      }
+    };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
     <style>
         body {
             font-family: 'Nunito', sans-serif;
@@ -116,7 +133,7 @@
             font-size: 1.6rem;
             color: #777;
             font-family: 'Quicksand', sans-serif;
-         }
+       }
         section h4 {
             margin-top: 25px;
             margin-bottom: 15px;
@@ -345,10 +362,10 @@
             color: #6ab095; /* Theme color for emphasis */
         }
         video.video-placeholder { /* Or just .video-placeholder if the class is directly on <video> */
-    width: 100%;
-    height: 100%; /* May require an aspect-ratio on the parent container */
-    object-fit: cover; /* Or 'contain', depending on the desired effect */
-}
+            width: 100%;
+            height: 100%; /* May require an aspect-ratio on the parent container */
+            object-fit: contain; /* Changed from cover to contain */
+        }
 /* ... (your existing CSS) ... */
 
 .showcase-grid-two-col { /* New class for the main grid in showcase tabs */
@@ -375,12 +392,15 @@
         .media-element { /* Common class for actual video/img elements for consistent sizing */
             width: 100%; /* Make media take full width of its .showcase-media-item parent */
             height: 150px; /* Fixed height for all media elements - ADJUST AS NEEDED */
-            object-fit: cover; /* Ensures media covers the area, may crop; use 'contain' to see full media */
+            object-fit: contain; /* Ensures media is fully visible, may letterbox. Changed from cover */
             background-color: #e8f5e9; /* Background for empty video or if image is transparent */
             border: 1px solid #c8e6c9; /* Optional border */
             border-radius: 4px; /* Optional rounded corners */
         }
-
+        /* Ensure images within .media-element also use contain if not specified otherwise */
+        img.media-element {
+            object-fit: contain;
+        }
         
         .comparison-labels { /* Ensure labels are above media */
             margin-bottom: 5px; /* Space between label and media */
@@ -408,7 +428,7 @@
         .comparison-media-element {
             width: 100%; /* Make media take full width of its .comparison-media-container parent */
             height: 120px; /* FIXED HEIGHT for consistent sizing - ADJUST THIS VALUE AS NEEDED */
-            object-fit: cover; /* Ensures media covers the area, may crop; use 'contain' for full visibility */
+            object-fit: contain; /* Ensures media is fully visible, may letterbox. Changed from cover */
             background-color: #e8f5e9; /* Fallback background */
             border: 1px solid #c8e6c9; 
             border-radius: 4px;
@@ -439,14 +459,6 @@
              text-align: center; /* Center text within each label span */
         }
 
-        /* Ensure the .comparison-grid itself allows items to have consistent width base */
-        /* The existing .comparison-grid style:
-           display: grid;
-           grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-           gap: 25px; 
-           This should already give reasonably consistent widths for the .comparison-case items.
-           The "consistent grid size" is mainly achieved by having consistent content height within.
-        */
         .comparison-case h5 {
             margin-bottom: 10px; /* Space below the "Case X" title */
         }
@@ -483,35 +495,6 @@
             display: flex;
             flex-direction: column; /* Stack label on top of media */
         }
-        /* Reuse .comparison-media-element from previous styling for videos/images */
-        /* Ensure .comparison-media-element has a fixed height, e.g.: */
-        /* .comparison-media-element {
-            width: 100%;
-            height: 120px; /* Or your preferred consistent height */
-        /* object-fit: cover;
-            background-color: #e8f5e9;
-            border: 1px solid #c8e6c9;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            font-size: 0.8em;
-            color: #8cbba9;
-        }
-        img.comparison-media-element {
-            object-fit: contain;
-        }
-        */
-
-        /* Reuse .comparison-labels from previous styling */
-        /* .comparison-labels {
-            margin-bottom: 5px;
-            font-size: 0.8em;
-            text-align: center;
-            font-weight: 600;
-            color: #555;
-        } */
 
         .task-row-divider {
             border: 0;
@@ -531,8 +514,7 @@
             <p class="affiliation">Affiliation, Address, email</p>
             <div class="links">
                 <a href="#paper-link-placeholder">📄 Paper (PDF)</a>
-                <!-- <a href="#code-link-placeholder">💻 Code (Coming Soon)</a> -->
-            </div>
+                </div>
         </div>
     </header>
 
@@ -666,18 +648,18 @@
                             <div class="showcase-media-item">
                                 <div class="comparison-labels">Reference Video</div>
                                 <video class="media-element" controls muted loop>
-                                    <source src="videos/40_refvideo.mp4" type="video/mp4">
+                                    <source src="videos/general/insert/ours/20_refvideo.mp4" type="video/mp4">
                                     Your browser does not support the video tag.
                                 </video>
                             </div>
                             <div class="showcase-media-item">
                                 <div class="comparison-labels">ID Reference</div>
-                                <img src="figs/necklace.jpg" alt="ID Reference S5" class="media-element">
+                                <img src="figs/ttq.png" alt="ID Reference S5" class="media-element">
                             </div>
                             <div class="showcase-media-item">
                                 <div class="comparison-labels output-label">FullDiT2 Output</div>
                                 <video class="media-element" controls muted loop>
-                                    <source src="videos/40_generated_1234.mp4" type="video/mp4">
+                                    <source src="videos/general/insert/ours/20_generated.mp4" type="video/mp4">
                                     Your browser does not support the video tag.
                                 </video>
                             </div>
@@ -828,10 +810,6 @@
                                 <div class="comparison-labels">Ref. Video (Object to Delete)</div>
                                 <video class="media-element" controls muted loop><source src="videos/delete/0_refvideo.mp4" type="video/mp4"></video>
                             </div>
-                             <!-- <div class="showcase-media-item">
-                                <div class="comparison-labels">Instruction/Mask (Optional)</div>
-                                <div class="media-element text-placeholder-vis">e.g., "Remove car" / Mask</div>
-                            </div> -->
                             <div class="showcase-media-item">
                                 <div class="comparison-labels output-label">FullDiT2 Output</div>
                                 <video class="media-element" controls muted loop><source src="videos/delete/0_generated.mp4" type="video/mp4"></video>
@@ -1024,10 +1002,6 @@
                             <div class="showcase-media-item">
                                 <div class="comparison-labels">Pose Sequence</div>
                                 <video class="media-element" controls muted loop><source src="videos/pose/1_refvideo.mp4" type="video/mp4"></video> </div>
-                            <!-- <div class="showcase-media-item">
-                                <div class="comparison-labels">Text (Optional)</div>
-                                <div class="media-element text-placeholder-vis">Prompt S1</div>
-                            </div> -->
                             <div class="showcase-media-item">
                                 <div class="comparison-labels output-label">FullDiT2 Output</div>
                                 <video class="media-element" controls muted loop><source src="videos/pose/1_generated_1234.mp4" type="video/mp4"></video>
@@ -1041,10 +1015,6 @@
                                 <div class="comparison-labels">Pose Sequence</div>
                                 <video class="media-element" controls muted loop><source src="videos/pose/3_refvideo.mp4" type="video/mp4"></video>
                             </div>
-                            <!-- <div class="showcase-media-item">
-                                <div class="comparison-labels">Text (Optional)</div>
-                                <div class="media-element text-placeholder-vis">Prompt S2</div>
-                            </div> -->
                             <div class="showcase-media-item">
                                 <div class="comparison-labels output-label">FullDiT2 Output</div>
                                 <video class="media-element" controls muted loop><source src="videos/pose/3_generated_1234.mp4" type="video/mp4"></video>
@@ -1058,10 +1028,6 @@
                                 <div class="comparison-labels">Pose Sequence</div>
                                 <video class="media-element" controls muted loop><source src="videos/pose/12_refvideo.mp4" type="video/mp4"></video>
                             </div>
-                            <!-- <div class="showcase-media-item">
-                                <div class="comparison-labels">Text (Optional)</div>
-                                <div class="media-element text-placeholder-vis">Prompt S3</div>
-                            </div> -->
                             <div class="showcase-media-item">
                                 <div class="comparison-labels output-label">FullDiT2 Output</div>
                                 <video class="media-element" controls muted loop><source src="videos/pose/12_generated_1234.mp4" type="video/mp4"></video>
@@ -1075,10 +1041,6 @@
                                 <div class="comparison-labels">Pose Sequence</div>
                                 <video class="media-element" controls muted loop><source src="videos/pose/27_refvideo.mp4" type="video/mp4"></video>
                             </div>
-                            <!-- <div class="showcase-media-item">
-                                <div class="comparison-labels">Text (Optional)</div>
-                                <div class="media-element text-placeholder-vis">Prompt S4</div>
-                            </div> -->
                             <div class="showcase-media-item">
                                 <div class="comparison-labels output-label">FullDiT2 Output</div>
                                 <video class="media-element" controls muted loop><source src="videos/pose/27_generated_1234.mp4" type="video/mp4"></video>
@@ -1092,10 +1054,6 @@
                                 <div class="comparison-labels">Pose Sequence</div>
                                 <video class="media-element" controls muted loop><source src="videos/pose/7_refvideo.mp4" type="video/mp4"></video>
                             </div>
-                            <!-- <div class="showcase-media-item">
-                                <div class="comparison-labels">Text (Optional)</div>
-                                <div class="media-element text-placeholder-vis">Prompt S5</div>
-                            </div> -->
                             <div class="showcase-media-item">
                                 <div class="comparison-labels output-label">FullDiT2 Output</div>
                                 <video class="media-element" controls muted loop><source src="videos/pose/7_generated_1234.mp4" type="video/mp4"></video>
@@ -1109,10 +1067,6 @@
                                 <div class="comparison-labels">Pose Sequence</div>
                                 <video class="media-element" controls muted loop><source src="videos/pose/13_refvideo.mp4" type="video/mp4"></video>
                             </div>
-                            <!-- <div class="showcase-media-item">
-                                <div class="comparison-labels">Text (Optional)</div>
-                                <div class="media-element text-placeholder-vis">Prompt S6</div>
-                            </div> -->
                             <div class="showcase-media-item">
                                 <div class="comparison-labels output-label">FullDiT2 Output</div>
                                 <video class="media-element" controls muted loop><source src="videos/pose/13_generated_1234.mp4" type="video/mp4"></video>
@@ -1242,13 +1196,13 @@
             </div>
             <div class="figure">
                 <h3>Comparison of our FullDiT2 with adapter-based methods and Full-DiT.</h3>
-                <img src="figs/first_fig.pdf" alt="Figure 3: Overview of the FullDiT2 Framework">
+                <img src="figs/first_fig.png" alt="Figure 3: Overview of the FullDiT2 Framework">
                 <figcaption>Figure 2: Comparison of our FullDiT2 with adapter-based methods and Full-DiT.</figcaption>
             </div>
 
             <div class="figure">
                 <h3>FullDiT2 Framework Overview</h3>
-                <img src="figs/mainfig_0516_v2.pdf" alt="Figure 3: Overview of the FullDiT2 Framework">
+                <img src="figs/mainfig_0516_v2.png" alt="Figure 3: Overview of the FullDiT2 Framework">
                 <figcaption>Figure 3: (Left) Dynamic Token Selection (DTS) module selects top-K reference tokens for attention. (Right) Selective Context Caching illustrates temporal-layer caching and skipping for efficiency.</figcaption>
             </div>
         </section>
@@ -1259,13 +1213,12 @@
 
             <div class="tab-container main-tabs">
                 <button class="tab-button active" onclick="openMainTab(event, 'baseline-compare')">vs. Baseline (FullDiT)</button>
-                <!-- <button class="tab-button" onclick="openMainTab(event, 'ablation-studies')">Ablation Studies</button> -->
                 <button class="tab-button" onclick="openMainTab(event, 'general-models')">vs. General Models</button>
             </div>
 
             <div id="baseline-compare" class="main-tab-content active">
                 <h3>Task-Specific Comparisons against Baseline (FullDiT)</h3>
-                <p style="text-align:center; margin-bottom:20px;">FullDiT2 consistently achieves significant speedups while maintaining or improving generation quality compared to the FullDiT baseline across various tasks. [cite: 9, 130]</p>
+                <p style="text-align:center; margin-bottom:20px;">FullDiT2 consistently achieves significant speedups while maintaining or improving generation quality compared to the FullDiT baseline across various tasks.</p>
 
                 <div class="tab-container sub-tabs">
                     <button class="sub-tab-button active" onclick="openSubTab(event, 'id-insert-baseline', 'baseline-compare')">ID Insertion</button>
@@ -1474,10 +1427,7 @@
                                         Your browser does not support the video tag.
                                     </video>
                                 </div>
-                                <!-- <div class="comparison-media-container">
-                                    <img src="figs/robot.png" alt="ID Reference S1" class="comparison-media-element">
-                                </div> -->
-                            </div>
+                                </div>
     
                             <div class="comparison-labels" style="margin-top: 15px;"> <span>Baseline Output</span>
                                 <span>FullDiT2 Output</span>
@@ -1509,7 +1459,7 @@
                                         <source src="videos/camp/delete/ours/6_refvideo.mp4" type="video/mp4">
                                         Your browser does not support the video tag.
                                     </video>
-                                </div>                            
+                                </div>                               
                             </div>
     
                             <div class="comparison-labels" style="margin-top: 15px;">
@@ -1544,7 +1494,7 @@
                             <li><strong>RotErr / TransErr:</strong> Comparable or improved (e.g. Baseline 6.173 TransErr vs Ours 5.730)</li>
                         </ul>
                     </div>
-                    <div  class="comparison-grid">
+                    <div class="comparison-grid">
                         <div class="comparison-case">
                             <h5>Case 1</h5>
                             <div class="comparison-labels">
@@ -1625,7 +1575,7 @@
                                 </div>
                             </div>
                         </div>
-                    </div>                
+                    </div>                       
                 </div>
                 <div id="pose-video-baseline" class="sub-tab-content">
                     <h4>Pose-to-Video</h4>
@@ -1637,7 +1587,7 @@
                             <li><strong>PCK (Pose Control):</strong> Maintained (e.g. Baseline 72.445 vs Ours 71.408)</li>
                         </ul>
                     </div>
-                    <div  class="comparison-grid">
+                    <div class="comparison-grid">
                         <div class="comparison-case">
                             <h5>Case 1</h5>
                             <div class="comparison-labels">
@@ -1698,13 +1648,12 @@
                                 </div>
                                 <div class="comparison-media-container">
                                     <video class="comparison-media-element" controls muted loop>
-                                        <source src="videos/camp/pose/baseline/10_generated.mp4" type="video/mp4">
-                                        Your browser does not support the video tag.
+                                        <source src="videos/camp/pose/baseline/10_generated.mp4" type="video/mp4"> Your browser does not support the video tag.
                                     </video>
                                 </div>
                             </div>
                         </div>
-                    </div>                
+                    </div>                       
                 </div>
                 <div id="traj-video-baseline" class="sub-tab-content">
                     <h4>Trajectory-to-Video</h4>
@@ -1716,7 +1665,7 @@
                             <li><strong>RotErr / TransErr:</strong> Maintained (e.g. Baseline 1.471 / 5.755 vs Ours 1.566 / 5.714)</li>
                         </ul>
                     </div>
-                    <div  class="comparison-grid">
+                    <div class="comparison-grid">
                         <div class="comparison-case">
                             <h5>Case 1</h5>
                             <div class="comparison-labels">
@@ -1783,7 +1732,7 @@
                                 </div>
                             </div>
                         </div>
-                    </div>                
+                    </div>                       
                 </div>
             </div>
             <div id="general-models" class="main-tab-content">
@@ -1875,10 +1824,6 @@
                                 Your browser does not support the video tag.
                             </video>
                         </div>
-                        <!-- <div class="comparison-method-item">
-                            <div class="comparison-labels">ID Reference</div>
-                            <img src="figs/task_idinsert_id.png" alt="ID Insert Ref" class="comparison-media-element">
-                        </div> -->
                         <div class="comparison-method-item">
                             <div class="comparison-labels">Delta-DiT Output</div>
                             <video class="comparison-media-element" controls muted loop>
@@ -1985,10 +1930,6 @@
                                 Your browser does not support the video tag.
                             </video>
                         </div>
-                        <!-- <div class="comparison-method-item">
-                            <div class="comparison-labels">ID Reference</div>
-                            <img src="figs/task_idinsert_id.png" alt="ID Insert Ref" class="comparison-media-element">
-                        </div> -->
                         <div class="comparison-method-item">
                             <div class="comparison-labels">Delta-DiT Output</div>
                             <video class="comparison-media-element" controls muted loop>
@@ -2013,15 +1954,6 @@
                     </div>
                 </div>
 
-                <!-- <hr class="task-row-divider">
-
-                <div class="comparison-task-row">
-                    <h4>ID Swap</h4>
-                    <div class="comparison-method-flex-container">
-                        </div>
-                </div>
-                <hr class="task-row-divider"> -->
-
                 </div>
 
         </section>
@@ -2035,20 +1967,14 @@
                     <li><strong>Reduced Computational Cost:</strong> Particularly pronounced in tasks with multiple conditions, such as Video Re-Camera, where FullDiT2 reduces computational cost to only 32% of baseline FLOPs and achieves a 3.43x speedup.</li>
                     <li><strong>Preserved/Improved Quality:</strong> Maintains high fidelity and accurately adheres to various conditioning inputs, achieving results comparable to or even outperforming the baseline. For example, FullDiT2 can outperform in ID insertion tasks.</li>
                 </ul>
-                <!-- <p style="text-align:center; margin-top:15px;">(Refer to Table 1 in the paper for detailed quantitative comparisons across all tasks. [cite: 138, 139])</p> -->
-            </div>
-             <!-- <div class="figure">
-                <h3>Computational Cost Analysis (Self-Attention)</h3>
-                <img src="placeholder_figure5.png" alt="Figure 5: Comparison of computational costs">
-                <figcaption>Figure 5: FullDiT2 significantly reduces self-attention computational cost versus target video length compared to the baseline. [cite: 165, 170]</figcaption>
-            </div> -->
-        </section>
+                </div>
+             </section>
     </div>
 
     <footer>
         <div class="container">
             <p>&copy; 2025 Anonymous Author(s). This webpage is for illustrative purposes.</p>
-            <p>FullDiT2: Efficient In-Context Conditioning for Video Diffusion Transformers. Submitted to NeurIPS 2025.</p>
+            <p>FullDiT2: Efficient In-Context Conditioning for Video Diffusion Transformers.</p>
         </div>
     </footer>
 
@@ -2089,9 +2015,9 @@
                  subTabsInCurrentMain.forEach(btn => btn.classList.remove('active'));
                  let subContentInCurrentMain = document.querySelectorAll("#" + mainTabName + " .sub-tab-content");
                  subContentInCurrentMain.forEach(content => {
-                     content.style.display = 'none';
-                     content.classList.remove('active');
-                    });
+                      content.style.display = 'none';
+                      content.classList.remove('active');
+                   });
                 firstSubTabButton.click(); 
             }
         }
