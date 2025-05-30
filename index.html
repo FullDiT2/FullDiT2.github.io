@@ -503,6 +503,12 @@
             margin-top: 25px;
             margin-bottom: 25px;
         }
+    /* 选中 class="authors" 元素内部的所有链接 a */
+    .authors a {
+        color: inherit; /* 颜色继承父元素(p)的颜色，通常是黑色 */
+        text-decoration: none; /* 去掉下划线 */
+    }
+</style>
     </style>
 </head>
 <body>
@@ -510,12 +516,32 @@
     <header>
         <div class="container">
             <h1>FullDiT2: Efficient In-Context Conditioning for Video Diffusion Transformers</h1>
-            <p class="authors">Anonymous Author(s)</p>
-            <p class="affiliation">Affiliation, Address, email</p>
+            
+            <p class="authors">
+                <strong><a href="https://xuanhuahe.github.io/">Xuanhua He</a></strong><sup>1</sup>, 
+                <strong><a href="https://liuquande.github.io/">Quande Liu</a></strong><sup>2,†</sup>, 
+                <strong><a href="https://zixuan-ye.github.io/">Zixuan Ye</a></strong><sup>1</sup>, 
+                <strong><a href="https://ywcmaike.github.io/">Wecai Ye</a></strong><sup>2</sup>, 
+                <strong><a href="https://openreview.net/profile?id=~Qiulin_Wang1">Qiulin Wang</a></strong><sup>2</sup>, 
+                <br> 
+                <strong><a href="https://xinntao.github.io/">Xintao Wang</a></strong><sup>2</sup>, 
+                <strong><a href="https://cqf.io/">Qifeng Chen</a></strong><sup>1</sup>, 
+                <strong><a href="https://scholar.google.com/citations?user=P6MraaYAAAAJ&hl=en">Pengfei Wan</a></strong><sup>2</sup>, 
+                <strong><a href="https://openreview.net/profile?id=~Di_ZHANG3">Di Zhang</a></strong><sup>2</sup>, 
+                <strong><a href="https://openreview.net/profile?id=~Kun_Gai1">Kun Gai</a></strong><sup>2</sup>
+            </p>
+        
+            <p class="affiliation">
+                <sup>1</sup>The Hong Kong University of Science and Technology<br>
+                <sup>2</sup>Kuaishou Technology<br>
+                <sup>†</sup>Corresponding author
+            </p>
+        
             <div class="links">
                 <a href="#paper-link-placeholder">📄 Paper (PDF)</a>
-                </div>
+            </div>
         </div>
+                
     </header>
 
     <nav>
