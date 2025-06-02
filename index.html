@@ -43,7 +43,7 @@
         }
         header {
             background: linear-gradient(135deg, #a8e6cf 0%, #dcedc1 100%);
-            color: #fff;
+            color: #333; /* 改为深色，提高可读性 */
             padding: 2rem 0;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
             text-align: center;
@@ -51,13 +51,14 @@
         header h1 {
             margin: 0;
             font-family: 'Quicksand', sans-serif;
-            font-size: 2.8rem;
+            font-size: 3.2rem; /* 从2.8rem增大到3.2rem */
             font-weight: 700;
+            color: #333; /* 明确设置为深色 */
         }
         header .authors, header .affiliation {
-            font-size: 1em;
-            color: #fff;
-            opacity: 0.9;
+            font-size: 1.2em; /* 从1em增大到1.2em */
+            color: #333; /* 从白色改为深色 */
+            opacity: 1; /* 从0.9改为1，确保清晰可见 */
             margin-top: 8px;
         }
         header .links a {
@@ -505,8 +506,12 @@
         }
     /* 选中 class="authors" 元素内部的所有链接 a */
     .authors a {
-        color: inherit; /* 颜色继承父元素(p)的颜色，通常是黑色 */
-        text-decoration: none; /* 去掉下划线 */
+        color: #333 !important; /* 强制设置为深色，覆盖inherit */
+        text-decoration: none;
+    }
+    .authors a:hover {
+        color: #6ab095 !important; /* 悬停时显示主题色 */
+        text-decoration: underline;
     }
 </style>
     </style>
